@@ -1,18 +1,18 @@
 const { ApolloServer } = require('@apollo/server')
 const { startStandaloneServer } = require('@apollo/server/standalone')
 const { GraphQLError } = require('graphql')
-
 const mongoose = require('mongoose')
 mongoose.set('strictQuery', false)
-const MONGODB_URI = process.env.MONGODB_URI
 
 const Book = require('./models/book')
 const Author = require('./models/author')
 const User = require('./models/user')
 
-require('dotenv').config()
 const jwt = require('jsonwebtoken')
 
+require('dotenv').config()
+
+const MONGODB_URI = process.env.MONGODB_URI
 console.log('connecting to', MONGODB_URI)
 
 mongoose.connect(MONGODB_URI)
@@ -103,6 +103,11 @@ const resolvers = {
     allAuthors: async () =>
       await Author.find({})
   },
+  Book: {
+    author: async (root) => {
+      return await Author.findOne({ _id: root.author })
+    }
+  },
   Author: {
     // display total book of the author
     bookCount: async (root) => {
@@ -120,6 +125,8 @@ const resolvers = {
           }
         })
       }
+
+      console.log(context)
 
       // check if author is in database
       let author = await Author.findOne({ name: args.author })
