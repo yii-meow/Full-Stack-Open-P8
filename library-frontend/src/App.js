@@ -2,9 +2,26 @@ import { useState } from 'react'
 import Authors from './components/Authors'
 import Books from './components/Books'
 import NewBook from './components/NewBook'
-import { useApolloClient } from '@apollo/client'
+import { useApolloClient, useSubscription, useQuery } from '@apollo/client'
 import LoginForm from './components/LoginForm'
 import { Recommendations } from './components/Recommendation'
+import { ALL_BOOKS, BOOK_ADDED } from './queries'
+
+export const updateCache = (cache, query, addedBook) => {
+  const uniqByTitle = (a) => {
+    let seen = new Set()
+    return a.filter(item => {
+      let k = item.title
+      return seen.has(k) ? false : seen.add(k)
+    })
+  }
+
+  cache.updateQuery(query, ({ allBooks }) => {
+    return {
+      allBooks: uniqByTitle(allBooks.concat(addedBook))
+    }
+  })
+}
 
 const App = () => {
   const [page, setPage] = useState('authors')
@@ -12,11 +29,26 @@ const App = () => {
 
   const client = useApolloClient()
 
+  const books = useQuery(ALL_BOOKS)
+
+  useSubscription(BOOK_ADDED, {
+    onData: ({ data, client }) => {
+      const addedBook = data.data.bookAdded
+      window.alert(`${addedBook.title} is added`)
+      updateCache(client.cache, { query: ALL_BOOKS }, addedBook)
+    }
+  })
+
+  if (books.loading) {
+    return <div>loading...</div>
+  }
+
   const logout = () => {
     setToken(null)
     localStorage.clear()
     client.resetStore()
   }
+
 
   if (!token) {
     return (
@@ -38,7 +70,7 @@ const App = () => {
 
       <Authors show={page === 'authors'} />
 
-      <Books show={page === 'books'} />
+      <Books show={page === 'books'} books={books.data?.allBooks} />
 
       <NewBook show={page === 'add'} />
 
